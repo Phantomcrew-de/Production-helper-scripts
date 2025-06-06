@@ -36,13 +36,13 @@ chmod +x *.sh
 ```
 You'll be prompted to enter:
 
-A date (YYYYMMDD) – leave empty for today
+- A date (YYYYMMDD) – leave empty for today
 
-A client name
+- A client name
 
-A project name
+- A project name
 
-A folder structure like this will be created:
+- A folder structure like this will be created:
 ````
 20250606_ACME_ProductVideo/
 ├── 00_Final/
