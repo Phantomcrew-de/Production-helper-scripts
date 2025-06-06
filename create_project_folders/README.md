@@ -16,5 +16,5 @@ Datum: 20250606, Client: ACME, Project: ProductVideo
 │   ├── VFX/
 │   ├── Graphics/
 │   └── Music/
-└── 02_Dokumente/
+└── 02_Documents/
 ````
