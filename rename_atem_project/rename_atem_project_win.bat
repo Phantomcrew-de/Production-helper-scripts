@@ -1,64 +1,44 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal enabledelayedexpansion
 
-set "BASE_DIR=%cd%"
-
-:: Find the first .drp file in this directory
+:: === Projektname aus .drp-Datei erkennen ===
 for %%F in (*.drp) do (
-    set "OLD_NAME=%%~nF"
-    goto :found
+    set "OLDNAME=%%~nF"
+    goto :gotOldName
 )
 
-echo ❌ No .drp file found in this directory.
-exit /b 1
+echo Keine .drp-Datei gefunden!
+exit /b
 
-:found
-echo 🔍 Found project: %OLD_NAME%.drp
+:gotOldName
+echo Alter Projektname erkannt: %OLDNAME%
+set /p NEWNAME=Neuer Projektname: 
 
-:: Ask for new name
-set /p NEW_NAME=🆕 Enter new project name: 
-
-if "%NEW_NAME%"=="%OLD_NAME%" (
-    echo ⚠️ New name is the same as the old name. Aborting.
-    exit /b 1
+if "%OLDNAME%"=="%NEWNAME%" (
+    echo Neuer Name ist gleich wie der alte. Abbruch.
+    exit /b
 )
 
-:: Step 1: Rename files from deepest level upwards
-for /f "delims=" %%F in ('dir /s /b /a-d ^| sort /R') do (
-    set "OLD_PATH=%%F"
-    set "NEW_PATH=!OLD_PATH:%OLD_NAME%=%NEW_NAME%!"
-    if not "!OLD_PATH!"=="!NEW_PATH!" (
-        ren "%%F" "!NEW_PATH:~,-1!"
+:: === Alle passenden Dateien & Ordner umbenennen ===
+for /r %%F in (*%OLDNAME%*) do (
+    set "OLDPATH=%%~fF"
+    set "NEWPATH=!OLDPATH:%OLDNAME%=%NEWNAME%!"
+    if not "!OLDPATH!"=="!NEWPATH!" (
+        echo Umbenennen: !OLDPATH! → !NEWPATH!
+        ren "%%~fF" "%%~nxF" >nul 2>&1
+        move "%%~fF" "!NEWPATH!" >nul 2>&1
     )
 )
 
-:: Step 2: Rename folders from top to bottom
-for /f "delims=" %%D in ('dir /s /b /ad ^| sort') do (
-    set "OLD_DIR=%%D"
-    set "NEW_DIR=!OLD_DIR:%OLD_NAME%=%NEW_NAME%!"
-    if not "!OLD_DIR!"=="!NEW_DIR!" (
-        ren "%%D" "!NEW_DIR:~,-1!"
-    )
-)
+:: === drp-Datei umbenennen und Inhalte anpassen ===
+set "OLDFILE=%OLDNAME%.drp"
+set "NEWFILE=%NEWNAME%.drp"
+rename "%OLDFILE%" "%NEWFILE%"
 
-:: Step 3: Rename the .drp file itself
-if exist "%OLD_NAME%.drp" (
-    ren "%OLD_NAME%.drp" "%NEW_NAME%.drp"
-)
+:: Inhalte ersetzen (PowerShell für In-Place-Ersetzung)
+powershell -Command "(Get-Content -Raw -Encoding UTF8 '%NEWFILE%') -replace '%OLDNAME%', '%NEWNAME%' | Set-Content -Encoding UTF8 '%NEWFILE%'"
 
-:: Step 4: Replace inside the .drp file (assuming it's plain text)
-set "TMP_FILE=%TEMP%\__tmp_drp.txt"
-
-(
-    for /f "usebackq delims=" %%L in ("%NEW_NAME%.drp") do (
-        set "LINE=%%L"
-        setlocal EnableDelayedExpansion
-        echo(!LINE:%OLD_NAME%=%NEW_NAME%!
-        endlocal
-    )
-) > "%TMP_FILE%"
-
-move /Y "%TMP_FILE%" "%NEW_NAME%.drp" >nul
-
-echo ✅ Rename complete: %OLD_NAME% → %NEW_NAME%
+echo.
+echo Umbenennung abgeschlossen: %OLDNAME% → %NEWNAME%
 pause
+
