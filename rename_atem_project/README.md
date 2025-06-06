@@ -2,16 +2,11 @@
 These scripts help you rename a DaVinci Resolve .drp project file from ATEM Recordings and all associated folders and files that contain the original project name.
 
 ## ✅ Features:
--Detects the original .drp file name automatically
-
-- Prompts for a new project name````
-
+- Detects the original .drp file name automatically
+- Prompts for a new project name
 - Renames:
-
    - .drp file
-
-   - Any folders and files that include the old name (recursively)
- 
+   - Any folders and files that include the old name (recursively) 
    - Optionally replaces the name inside the .drp file (Linux only)
 
 ## 📂 Example Before:
