@@ -52,7 +52,7 @@ You'll be prompted to enter:
 │   ├── VFX/
 │   ├── Graphics/
 │   └── Music/
-└── 02_Dokumente/
+└── 02_Documents
 ````
 ## Windows (example)
 Double-click the .bat file or run from cmd:
