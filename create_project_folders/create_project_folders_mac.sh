@@ -39,7 +39,7 @@ mkdir -p "$main_folder/01_Footage/SFX"
 mkdir -p "$main_folder/01_Footage/VFX"
 mkdir -p "$main_folder/01_Footage/Graphics"
 mkdir -p "$main_folder/01_Footage/Music"
-mkdir -p "$main_folder/02_Dokumente"
+mkdir -p "$main_folder/02_Documents"
 
 # Erfolgsmeldung ausgeben
 echo "Projektordner '$main_folder' wurde erfolgreich erstellt."
