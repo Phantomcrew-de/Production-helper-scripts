@@ -34,7 +34,7 @@ mkdir "%main_folder%\01_Footage\SFX"
 mkdir "%main_folder%\01_Footage\VFX"
 mkdir "%main_folder%\01_Footage\Graphics"
 mkdir "%main_folder%\01_Footage\Music"
-mkdir "%main_folder%\02_Dokumente"
+mkdir "%main_folder%\02_Documents"
 
 :: Erfolgsmeldung
 echo Projektordner "%main_folder%" wurde erfolgreich erstellt.
