@@ -1,5 +1,4 @@
-# 📁 Projektordnerstruktur (create_project_folders_linux.sh / mac.sh / win.bat)
-
+# 📁 Projektordnerstruktur
 Beispiel bei Eingabe:
 
 Datum: 20250606, Client: ACME, Project: ProductVideo
