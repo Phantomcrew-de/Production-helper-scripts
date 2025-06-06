@@ -58,9 +58,9 @@ A folder structure like this will be created:
 │   └── Music/
 └── 02_Dokumente/
 ````
-Windows (example)
+## Windows (example)
 Double-click the .bat file or run from cmd:
-create_project_folder_win.bat
+````create_project_folder_win.bat````
 ## 🧠 Motivation
 These scripts were developed to speed up repetitive setup tasks in video production, reduce human error, and bring consistency across team workflows – especially in studio environments with shared storage and multi-user editing setups.
 
