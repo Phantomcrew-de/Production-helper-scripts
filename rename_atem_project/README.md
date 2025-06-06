@@ -32,7 +32,7 @@ NewProject/
 ## 💡 Notes:
 On Linux, the .drp file content will also be updated via sed.
 
-On Windows, only file and folder names are changed, not the .drp.
+On Windows, only file and folder names are changed, but may not the .drp (in dev.).
 
 Make sure you have a backup before running, especially if you're renaming important project files.
 
