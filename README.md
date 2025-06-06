@@ -35,13 +35,9 @@ chmod +x *.sh
 ./create_project_folders_linux.sh
 ```
 You'll be prompted to enter:
-
 - A date (YYYYMMDD) – leave empty for today
-
 - A client name
-
 - A project name
-
 - A folder structure like this will be created:
 ````
 20250606_ACME_ProductVideo/
