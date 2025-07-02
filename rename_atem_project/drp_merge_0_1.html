@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>DRP‑Merger (JSON & XML)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root{--brand:#0ea5e9;--bg:#f8fafc;--border:#cbd5e1;--text:#0f172a}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,sans-serif;background:var(--bg);margin:0;padding:1rem;display:flex;flex-direction:column;align-items:center;min-height:100vh;color:var(--text)}
+    h1{text-align:center;margin:0 0 1rem}
+    #dropzone{width:min(95%,500px);height:200px;border:3px dashed var(--border);border-radius:16px;display:flex;align-items:center;justify-content:center;text-align:center;padding:1rem;background:#fff;transition:.2s}
+    #dropzone.dragover{background:#e0f2fe;border-color:var(--brand)}
+    #downloadBtn{margin-top:1.5rem;padding:.75rem 1.25rem;font-size:1rem;border:none;background:var(--brand);color:#fff;border-radius:12px;cursor:pointer;display:none;text-decoration:none}
+    #status{margin-top:1rem;white-space:pre-line;max-width:600px}
+    small{color:#64748b}
+    /* Overlay */
+    #overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000;visibility:hidden;opacity:0;transition:.3s}
+    #overlay.show{visibility:visible;opacity:1}
+    #dialog{background:#fff;width:clamp(300px,90%,600px);max-height:90vh;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+    #dialog header{padding:1rem;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:.5rem}
+    #dialog h2{margin:0;font-size:1.2rem}
+    #searchBar{display:flex;gap:.5rem}
+    #searchBar input{flex:1;padding:.5rem;border:1px solid var(--border);border-radius:8px}
+    #renameTable{flex:1;overflow:auto}
+    table{width:100%;border-collapse:collapse;font-size:.9rem}
+    th,td{padding:.4rem .6rem;border-bottom:1px solid var(--border)}
+    tr:nth-child(even){background:#f1f5f9}
+    input.rename{width:100%;padding:.3rem;border:1px solid var(--border);border-radius:6px}
+    td.chk{text-align:center}
+    #dialog footer{padding:.8rem 1rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.5rem}
+    button{padding:.5rem 1rem;border:none;border-radius:8px;cursor:pointer;font-size:.9rem}
+    .secondary{background:#e2e8f0}
+    .primary{background:var(--brand);color:#fff}
+  </style>
+</head>
+<body>
+  <h1>DRP‑Dateien zusammenführen</h1>
+  <div id="dropzone">Dateien hierher ziehen<br><small>(.drp ZIP/XML oder .drp JSON)</small></div>
+  <a id="downloadBtn" download="merged.drp">Zusammengeführte Datei herunterladen</a>
+  <div id="status"></div>
+
+  <!-- Overlay -->
+  <div id="overlay">
+    <div id="dialog">
+      <header>
+        <h2>Namen anpassen</h2>
+        <div id="searchBar">
+          <input id="findInput" placeholder="Suchen …">
+          <input id="replaceInput" placeholder="Ersetzen durch …">
+          <button id="replaceBtn" class="secondary">Alle ersetzen</button>
+        </div>
+      </header>
+      <div id="renameTable">
+        <table>
+          <thead><tr><th>Übernehmen</th><th>Alter Name</th><th>Neuer Name</th></tr></thead>
+          <tbody id="renameBody"></tbody>
+        </table>
+      </div>
+      <footer>
+        <button id="cancelBtn" class="secondary">Abbrechen</button>
+        <button id="okBtn" class="primary">Übernehmen</button>
+      </footer>
+    </div>
+  </div>
+
+<script>
+const dropzone=document.getElementById('dropzone');
+const statusBox=document.getElementById('status');
+const downloadBtn=document.getElementById('downloadBtn');
+
+/* Overlay elements */
+const overlay=document.getElementById('overlay');
+const renameBody=document.getElementById('renameBody');
+const okBtn=document.getElementById('okBtn');
+const cancelBtn=document.getElementById('cancelBtn');
+const findInput=document.getElementById('findInput');
+const replaceInput=document.getElementById('replaceInput');
+const replaceBtn=document.getElementById('replaceBtn');
+
+let overlayResolve; // Promise resolver
+let conflicts=[];   // global temp
+
+function log(msg){statusBox.textContent+=msg+'\n';}
+
+dropzone.addEventListener('dragover',e=>{e.preventDefault();dropzone.classList.add('dragover');});
+dropzone.addEventListener('dragleave',()=>dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop',handleDrop);
+
+async function handleDrop(e){
+  e.preventDefault();dropzone.classList.remove('dragover');
+  const files=[...e.dataTransfer.files];
+  if(files.length<2)return alert('Bitte mindestens zwei Dateien ablegen.');
+  statusBox.textContent='';
+  log('Analysiere '+files.length+' Dateien …');
+  try{
+    const typed=await Promise.all(files.map(f=>detectType(f)));
+    const types=new Set(typed.map(t=>t.type));
+    if(types.size!==1)return alert('Alle Dateien müssen vom selben Typ sein (alle JSON‑basierte .drp oder alle ZIP/XML‑basierte .drp).');
+    const {type}=typed[0];
+    if(type==='json'){
+       const docs=[];
+       for(const info of typed){
+          log('✓ '+info.file.name+' als JSON erkannt');
+          docs.push(...info.docList);
+       }
+       const mergedText=await mergeJsonDocsInteractive(docs);
+       const blob=new Blob([mergedText],{type:'application/json'});
+       prepareDownload(blob,'merged_json.drp');
+    }else if(type==='zip'){
+       const xmlDocs=[];
+       for(const info of typed){
+          log('✓ '+info.file.name+' als ZIP/XML erkannt');
+          xmlDocs.push(info.xml);
+       }
+       const mergedStr=await mergeXmlInteractive(xmlDocs);
+       const zip=new JSZip();zip.file('project.xml',mergedStr);
+       const blob=await zip.generateAsync({type:'blob'});
+       prepareDownload(blob,'merged_xml.drp');
+    }else{
+       alert('Unbekannter Dateityp');
+    }
+  }catch(err){console.error(err);alert('Fehler: '+err.message);}  
+}
+
+function prepareDownload(blob,filename){
+   const url=URL.createObjectURL(blob);
+   downloadBtn.href=url;downloadBtn.download=filename;
+   downloadBtn.style.display='inline-block';
+   log('\nFertig! Klicke auf den Button, um die Datei herunterzuladen.');
+}
+
+/*— Typ‑Erkennung —*/
+async function detectType(file){
+  const buf=await file.slice(0,4).arrayBuffer();
+  const view=new Uint8Array(buf);
+  const isZip=view[0]===0x50&&view[1]===0x4b; // PK
+  if(isZip){
+     const zip=await JSZip.loadAsync(await file.arrayBuffer());
+     const proj=zip.file(/project\.xml$/i)[0];
+     if(!proj)throw new Error(file.name+': keine project.xml gefunden');
+     const xmlText=await proj.async('text');
+     const xml=(new DOMParser()).parseFromString(xmlText,'application/xml');
+     return {type:'zip',file,xml};
+  }else{
+     const text=await file.text();
+     const docList=parseConcatJson(text);
+     if(!docList.length)throw new Error(file.name+': kein gültiges JSON gefunden');
+     return {type:'json',file,docList};
+  }
+}
+
+/*— Parser für mehrfach hintereinander geschriebene JSON‑Objekte —*/
+function parseConcatJson(text){
+   const list=[];let depth=0,start=0;let inStr=false;
+   for(let i=0;i<text.length;i++){
+      const ch=text[i];
+      if(ch==='"'&&text[i-1]!=="\\") inStr=!inStr;
+      if(!inStr && ch==='{' ) depth++;
+      if(!inStr && ch==='}') {depth--; if(depth===0){const piece=text.slice(start,i+1).trim(); if(piece){ try{ list.push(JSON.parse(piece)); }catch{ } } start=i+1;}}
+   }
+   return list;
+}
+
+/* ===============================
+   Konflikt‑Dialog
+================================*/
+function showRenameDialog(conflicts){
+  // Build table rows
+  renameBody.innerHTML='';
+  conflicts.forEach((c,i)=>{
+     const tr=document.createElement('tr');
+     tr.innerHTML=`<td class="chk"><input type="checkbox" checked></td><td>${c.old}</td><td><input class="rename" value="${c.new}" data-idx="${i}"></td>`;
+     renameBody.appendChild(tr);
+  });
+  overlay.classList.add('show');
+  return new Promise((resolve,reject)=>{
+     overlayResolve=resolve;
+  });
+}
+
+okBtn.onclick=()=>{
+  overlay.classList.remove('show');
+  // read values
+  const rows=[...renameBody.querySelectorAll('tr')];
+  rows.forEach((row,i)=>{
+     const chk=row.querySelector('input[type=checkbox]').checked;
+     const val=row.querySelector('input.rename').value.trim();
+     conflicts[i].apply=chk;
+     conflicts[i].final=val;
+  });
+  overlayResolve(conflicts);
+};
+
+cancelBtn.onclick=()=>{
+  overlay.classList.remove('show');
+  overlayResolve(null);
+};
+
+replaceBtn.onclick=()=>{
+  const find=findInput.value;
+  const repl=replaceInput.value;
+  if(!find) return;
+  [...renameBody.querySelectorAll('input.rename')].forEach(inp=>{
+     inp.value=inp.value.replaceAll(find,repl);
+  });
+};
+
+/* ========= JSON‑Merge ========= */
+async function mergeJsonDocsInteractive(docs){
+   if(!docs.length)throw new Error('Keine JSON‑Daten');
+   const base=structuredClone(docs[0]);
+   if(!Array.isArray(base.sources))base.sources=[];
+   let idxOffset=base.sources.length;
+   const existing=new Map(base.sources.map(s=>[s.name,s]));
+   conflicts=[]; // reset
+   const pendingAdds=[];
+   for(let i=1;i<docs.length;i++){
+      const doc=docs[i];
+      if(!Array.isArray(doc.sources))continue;
+      for(const src of doc.sources){
+         if(existing.has(src.name)){
+           conflicts.push({type:'json',obj:src,old:src.name,new:src.name+'_kopie',apply:true});
+         }else{
+           pendingAdds.push(src);
+           existing.set(src.name,src);
+         }
+      }
+   }
+   if(conflicts.length){
+      const res=await showRenameDialog(conflicts);
+      if(!res)throw new Error('Abbruch durch Benutzer');
+      res.forEach(c=>{
+         if(c.apply){
+           const clone=structuredClone(c.obj);
+           clone.name=c.final||c.obj.name;
+           pendingAdds.push(clone);
+           existing.set(clone.name,clone);
+         }
+         // else skip
+      });
+   }
+   // push pendingAdds
+   for(const src of pendingAdds){
+      const clone=structuredClone(src);
+      clone._index_=idxOffset++;
+      base.sources.push(clone);
+   }
+   base.sources.forEach((s,i)=>s._index_=i);
+   return docsToText([base]);
+}
+
+function docsToText(list){return list.map(o=>JSON.stringify(o)).join('\n');}
+
+/* ========= XML‑Merge ========= */
+async function mergeXmlInteractive(xmlArr){
+  const base=xmlArr[0];
+  const baseRoot=base.documentElement;
+  const existingNames=new Set([...baseRoot.querySelectorAll('[name]')].map(n=>n.getAttribute('name')));
+  conflicts=[];
+  const toAppend=[];
+  for(let i=1;i<xmlArr.length;i++){
+     const root=xmlArr[i].documentElement;
+     root.childNodes.forEach(node=>{
+        if(node.nodeType===1){
+          const imported=base.importNode(node,true);
+          const nameAttr=imported.getAttribute && imported.getAttribute('name');
+          if(nameAttr && existingNames.has(nameAttr)){
+            conflicts.push({type:'xml',node:imported,old:nameAttr,new:nameAttr+' (2)',apply:true});
+          }else{
+            if(nameAttr)existingNames.add(nameAttr);
+            toAppend.push(imported);
+          }
+        }
+     });
+  }
+  if(conflicts.length){
+     const res=await showRenameDialog(conflicts);
+     if(!res)throw new Error('Abbruch durch Benutzer');
+     res.forEach(c=>{
+        if(c.apply){
+          c.node.setAttribute('name',c.final||c.old);
+          existingNames.add(c.final||c.old);
+          toAppend.push(c.node);
+        }
+        // else skip node
+     });
+  }
+  toAppend.forEach(n=>baseRoot.appendChild(n));
+  return new XMLSerializer().serializeToString(base);
+}
+</script>
+</body>
+</html>

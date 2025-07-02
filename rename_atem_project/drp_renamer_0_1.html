@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>DRP‑Renamer – Projekt & Medien umbenennen</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{color-scheme:light dark;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+    body{max-width:56rem;margin:auto;padding:1rem;line-height:1.6;}
+    .dropzone{border:2px dashed currentColor;padding:3rem 1rem;text-align:center;border-radius:0.75rem;margin-bottom:1rem;cursor:pointer;transition:background .2s}
+    .dropzone.hover{background:rgba(128,128,128,.2);}
+    #renameBtn{margin-top:1rem;padding:.65rem 1.3rem;font-size:1rem;border:none;border-radius:.5rem;background:dodgerblue;color:#fff;cursor:pointer}
+    #renameBtn:disabled{opacity:.4;cursor:not-allowed}
+    input[type="text"]{width:100%;padding:.5rem;font-size:1rem;border-radius:.5rem;border:1px solid #888;margin-top:.3rem}
+    .status{margin-top:.8rem;font-size:.92rem}
+  </style>
+</head>
+<body>
+  <h1>DRP‑Projekt umbenennen (reines Text‑Format)</h1>
+  <p>Zieh deine <code>.drp</code>‑Datei hierher oder klick die Fläche. Gib danach den neuen Projektnamen ein. Das Skript ersetzt jede Vorkommnis des alten Namens (auch in Medienpfaden) im gesamten Text der Datei und lädt die umbenannte Version herunter.</p>
+  <div id="dropzone" class="dropzone">📂 Datei hier ablegen oder klicken</div>
+  <input id="fileInput" type="file" accept=".drp" hidden />
+  <div id="details" style="display:none">
+    <p>Alter Projektname (aus Dateiname): <strong id="oldName">—</strong></p>
+    <label for="newName">Neuer Projektname:</label>
+    <input id="newName" type="text" placeholder="Neuer Name …" />
+    <button id="renameBtn" disabled>Umbenennen & ⬇︎ herunterladen</button>
+    <p id="status" class="status"></p>
+  </div>
+<script>
+  const dropzone=document.getElementById('dropzone');
+  const fileInput=document.getElementById('fileInput');
+  const oldNameEl=document.getElementById('oldName');
+  const newNameInput=document.getElementById('newName');
+  const renameBtn=document.getElementById('renameBtn');
+  const statusEl=document.getElementById('status');
+  const details=document.getElementById('details');
+  let fileText='', oldName='';
+  const prevent=e=>{e.preventDefault();e.stopPropagation();};
+  ['dragenter','dragover','dragleave','drop'].forEach(evt=>{dropzone.addEventListener(evt,prevent);});
+  ['dragenter','dragover'].forEach(evt=>{dropzone.addEventListener(evt,()=>dropzone.classList.add('hover'));});
+  ['dragleave','drop'].forEach(evt=>{dropzone.addEventListener(evt,()=>dropzone.classList.remove('hover'));});
+  dropzone.addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
+  dropzone.addEventListener('click',()=>fileInput.click());
+  fileInput.addEventListener('change',e=>handleFile(e.target.files[0]));
+  function handleFile(file){
+    if(!file||!/\.drp$/i.test(file.name)){alert('Bitte eine .drp‑Datei auswählen');return;}
+    oldName=file.name.replace(/\.drp$/i,'');
+    oldNameEl.textContent=oldName;
+    statusEl.textContent='Lese Datei …';
+    details.style.display='block';
+    const reader=new FileReader();
+    reader.onload=e=>{fileText=e.target.result;statusEl.textContent='Datei geladen. Bitte neuen Namen eingeben.';renameBtn.disabled=false;};
+    reader.onerror=()=>statusEl.textContent='Fehler beim Lesen der Datei.';
+    reader.readAsText(file,'utf-8');
+  }
+  renameBtn.addEventListener('click',()=>{
+    const newName=newNameInput.value.trim();
+    if(!newName){alert('Bitte neuen Projektnamen eingeben.');return;}
+    if(newName===oldName){alert('Der neue Name ist identisch mit dem alten.');return;}
+    renameBtn.disabled=true;
+    statusEl.textContent='Ersetze Namen …';
+    const escapedOld=oldName.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&');
+    const re=new RegExp(escapedOld,'g');
+    const newText=fileText.replace(re,newName);
+    statusEl.textContent='Erstelle Datei …';
+    const blob=new Blob([newText],{type:'text/plain;charset=utf-8'});
+    downloadBlob(blob,newName+'.drp');
+    statusEl.textContent='Fertig! Neue Datei wurde heruntergeladen.';
+    renameBtn.disabled=false;
+  });
+  function downloadBlob(blob,filename){
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=filename;
+    document.body.appendChild(a);
+    a.style.display='none';
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }
+</script>
+</body>
+</html>
