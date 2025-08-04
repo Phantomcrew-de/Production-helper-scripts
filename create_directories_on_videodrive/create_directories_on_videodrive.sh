@@ -3,7 +3,7 @@
 # Create directories
 mkdir -p 000_Encoding
 mkdir -p 001_Eigene_Videos
-mkdir -p 002_GFX
+mkdir -p 002_VFX
 mkdir -p 003_SFX
 mkdir -p 004_Archiv
 mkdir -p 005_Bilder
