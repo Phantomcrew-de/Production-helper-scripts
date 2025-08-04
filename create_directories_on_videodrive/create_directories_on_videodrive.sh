@@ -8,6 +8,7 @@ mkdir -p 003_SFX
 mkdir -p 004_Archiv
 mkdir -p 005_Bilder
 mkdir -p 006_Virtuelle_Sets
+mkdir -p 007_Dokumente
 
 # Confirm directories created
 echo "Directories created successfully!"
